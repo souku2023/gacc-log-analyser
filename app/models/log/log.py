@@ -15,8 +15,15 @@ class Log(BaseClass):
         """
         self.__file_path = file_path
         self.__master_df = self.__load_log_file()
-        self.__mission_info_df = self.__get_logs_by_type('MISSION_INFO', drop_first_column=True)
-        self.__spray_info_df = self.__get_logs_by_type('SPRAY_INFO', drop_first_column=True)
+        self.__mission_info_df = self.__get_logs_by_type('MISSION_INFO', drop_first_row=True)
+        self.__spray_info_df = self.__get_logs_by_type('SPRAY_INFO', drop_first_row=True)
+
+        # Process data frames
+        self.__process_mission_info()
+        self.__process_spray_info()
+
+        # Add location info to spray_info_df
+        self.__add_location_info_to_spray_dataframe()
 
     def __load_log_file(self):
         """
@@ -88,8 +95,8 @@ class Log(BaseClass):
         if self.__master_df is not None:
             df = self.__master_df[self.__master_df['log_type'] == log_type].copy()
             if drop_first_row and not df.empty:
-                # Drop the first column
-                df = df.iloc[:, :1].reset_index(drop=True)
+                # Drop the first row
+                df = df.iloc[1:].reset_index(drop=True)
             return df
         else:
             return pd.DataFrame()
@@ -101,7 +108,7 @@ class Log(BaseClass):
         if not self.__mission_info_df.empty:
             mission_info_columns = [
                 'flight_mode', 'arm_status', 'flight_status',
-                'height', 'speed', 'climb_rate', 'heading', 'latitude', 
+                'height', 'speed', 'climb_rate', 'heading', 'latitude',
                 'longitude'
             ]
 
@@ -116,7 +123,7 @@ class Log(BaseClass):
 
             # Convert numeric columns
             numeric_columns = [
-                'height', 'speed', 'climb_rate', 'heading', 'latitude', 
+                'height', 'speed', 'climb_rate', 'heading', 'latitude',
                 'longitude'
             ]
             for col in numeric_columns:
@@ -130,9 +137,9 @@ class Log(BaseClass):
         """
         if not self.__spray_info_df.empty:
             spray_columns = [
-                'spray_status', 'pump_pwm', 'nozzle_pwm', 'req_flowrate', 
-                'actual_flowrate', 'flowmeter_pulse', 'payload_rem', 
-                'area_sprayed', 'req_dosage', 'actual_dosage', 'prv_wp', 
+                'spray_status', 'pump_pwm', 'nozzle_pwm', 'req_flowrate',
+                'actual_flowrate', 'flowmeter_pulse', 'payload_rem',
+                'area_sprayed', 'req_dosage', 'actual_dosage', 'prv_wp',
                 'next_wp'
             ]
 
@@ -150,6 +157,46 @@ class Log(BaseClass):
         else:
             log.w("No SPRAY_INFO logs to process.")
 
+    def __add_location_info_to_spray_dataframe(self):
+        """
+        Appends latitude, longitude, and height from the closest mission_info entry to spray_info_df.
+        """
+        try:
+            if self.__mission_info_df.empty or self.__spray_info_df.empty:
+                log.w("Either mission_info_df or spray_info_df is empty. Cannot add location info.")
+                return
+
+            # Ensure required columns are present
+            required_columns = ['timestamp', 'latitude', 'longitude', 'height']
+            for col in required_columns:
+                if col not in self.__mission_info_df.columns:
+                    log.w(f"Column '{col}' not found in mission_info_df.")
+                    return
+
+            # Ensure timestamp columns are datetime and data is sorted
+            self.__mission_info_df['timestamp'] = pd.to_datetime(self.__mission_info_df['timestamp'])
+            self.__mission_info_df.sort_values('timestamp', inplace=True)
+
+            self.__spray_info_df['timestamp'] = pd.to_datetime(self.__spray_info_df['timestamp'])
+            self.__spray_info_df.sort_values('timestamp', inplace=True)
+
+            # Use merge_asof to merge on timestamp
+            merged_df = pd.merge_asof(
+                self.__spray_info_df,
+                self.__mission_info_df[['timestamp', 'latitude', 'longitude', 'height']],
+                on='timestamp',
+                direction='nearest',
+                tolerance=pd.Timedelta('1s')  # Adjust tolerance as needed
+            )
+
+            # Update __spray_info_df with the merged data
+            self.__spray_info_df = merged_df
+
+            log.i("Location info added to spray_info_df successfully.")
+
+        except Exception as e:
+            log.e(f"Error adding location info to spray_info_df: {e}")
+
     @property
     def master_df(self):
         """
@@ -162,8 +209,6 @@ class Log(BaseClass):
         """
         Returns the processed DataFrame containing MISSION_INFO logs.
         """
-        if 'flight_mode' not in self.__mission_info_df.columns:
-            self.__process_mission_info()
         return self.__mission_info_df
 
     @property
@@ -171,6 +216,4 @@ class Log(BaseClass):
         """
         Returns the processed DataFrame containing SPRAY_INFO logs.
         """
-        if 'spray_status' not in self.__spray_info_df.columns:
-            self.__process_spray_info()
         return self.__spray_info_df
