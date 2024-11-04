@@ -1,6 +1,6 @@
-import pandas as pd
+# app/models/log.py
 
-# 
+import pandas as pd
 from app._base.base_class import BaseClass
 from app.utils.logger import Logger
 
@@ -15,8 +15,8 @@ class Log(BaseClass):
         """
         self.__file_path = file_path
         self.__master_df = self.__load_log_file()
-        self.__mission_info_df = self.__get_logs_by_type('MISSION_INFO')
-        self.__spray_info_df = self.__get_logs_by_type('SPRAY_INFO')
+        self.__mission_info_df = self.__get_logs_by_type('MISSION_INFO', drop_first_column=True)
+        self.__spray_info_df = self.__get_logs_by_type('SPRAY_INFO', drop_first_column=True)
 
     def __load_log_file(self):
         """
@@ -74,15 +74,23 @@ class Log(BaseClass):
             return df
 
         except Exception as e:
-            print(f"Error loading log file: {e}")
+            log.e(f"Error loading log file: {e}")
             return pd.DataFrame(columns=['timestamp', 'module', 'severity', 'log_type', 'log_info'])
 
-    def __get_logs_by_type(self, log_type: str):
+    def __get_logs_by_type(self, log_type: str, drop_first_row: bool = False):
         """
         Returns a DataFrame filtered by log_type.
+
+        Parameters:
+            log_type (str): The type of log to filter.
+            drop_first_row (bool): If True, drops the first row of the DataFrame.
         """
         if self.__master_df is not None:
-            return self.__master_df[self.__master_df['log_type'] == log_type].copy()
+            df = self.__master_df[self.__master_df['log_type'] == log_type].copy()
+            if drop_first_row and not df.empty:
+                # Drop the first column
+                df = df.iloc[:, :1].reset_index(drop=True)
+            return df
         else:
             return pd.DataFrame()
 
@@ -95,7 +103,7 @@ class Log(BaseClass):
                 'flight_mode', 'arm_status', 'flight_status',
                 'height', 'speed', 'climb_rate', 'heading', 'latitude', 
                 'longitude'
-                ]
+            ]
 
             # Split 'log_info' into columns
             self.__mission_info_df[mission_info_columns] = \
@@ -110,7 +118,7 @@ class Log(BaseClass):
             numeric_columns = [
                 'height', 'speed', 'climb_rate', 'heading', 'latitude', 
                 'longitude'
-                ]
+            ]
             for col in numeric_columns:
                 self.__mission_info_df[col] = pd.to_numeric(self.__mission_info_df[col], errors='coerce')
         else:
@@ -118,18 +126,19 @@ class Log(BaseClass):
 
     def __process_spray_info(self):
         """
-        Processes the SPRAY_INFO logs by splitting 'log_info' into separate columns.
+        Processes the `SPRAY_INFO` logs by splitting `log_info` into separate columns.
         """
         if not self.__spray_info_df.empty:
             spray_columns = [
                 'spray_status', 'pump_pwm', 'nozzle_pwm', 'req_flowrate', 
                 'actual_flowrate', 'flowmeter_pulse', 'payload_rem', 
-                'area_sprayed', 'req_dosage', 'actual_dosage','prv_wp', 
+                'area_sprayed', 'req_dosage', 'actual_dosage', 'prv_wp', 
                 'next_wp'
-                ]
+            ]
 
             # Split 'log_info' into columns
-            self.__spray_info_df[spray_columns] = self.__spray_info_df['log_info'].str.split(',', expand=True)
+            self.__spray_info_df[spray_columns] = \
+                self.__spray_info_df['log_info'].str.split(',', expand=True)
 
             # Strip whitespace from new columns
             for col in spray_columns:
@@ -162,6 +171,6 @@ class Log(BaseClass):
         """
         Returns the processed DataFrame containing SPRAY_INFO logs.
         """
-        if 'param1' not in self.__spray_info_df.columns:
+        if 'spray_status' not in self.__spray_info_df.columns:
             self.__process_spray_info()
         return self.__spray_info_df
