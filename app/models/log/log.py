@@ -15,8 +15,8 @@ class Log(BaseClass):
         """
         self.__file_path = file_path
         self.__master_df = self.__load_log_file()
-        self.__mission_info_df = self.__get_logs_by_type('MISSION_INFO', drop_first_row=True)
-        self.__spray_info_df = self.__get_logs_by_type('SPRAY_INFO', drop_first_row=True)
+        self.__mission_info_df = self.__get_logs_by_type('MISSION_INFO', drop_first_row=True).reset_index(drop=True)
+        self.__spray_info_df = self.__get_logs_by_type('SPRAY_INFO', drop_first_row=True).reset_index(drop=True)
 
         # Process data frames
         self.__process_mission_info()
@@ -78,7 +78,7 @@ class Log(BaseClass):
             df = pd.DataFrame(data)
             # Convert timestamp to datetime
             df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-            return df
+            return df.reset_index(drop=True)
 
         except Exception as e:
             log.e(f"Error loading log file: {e}")
@@ -97,13 +97,14 @@ class Log(BaseClass):
             if drop_first_row and not df.empty:
                 # Drop the first row
                 df = df.iloc[1:].reset_index(drop=True)
-            return df
+            return df.reset_index(drop=True)
         else:
             return pd.DataFrame()
 
     def __process_mission_info(self):
         """
-        Processes the `MISSION_INFO` logs by splitting `log_info` into separate columns.
+        Processes the `MISSION_INFO` logs by splitting `log_info` into separate
+        columns and retaining only rows that meet specified conditions.
         """
         if not self.__mission_info_df.empty:
             mission_info_columns = [
@@ -128,6 +129,19 @@ class Log(BaseClass):
             ]
             for col in numeric_columns:
                 self.__mission_info_df[col] = pd.to_numeric(self.__mission_info_df[col], errors='coerce')
+
+            # Apply filtering conditions
+            self.__mission_info_df = self.__mission_info_df[
+                (self.__mission_info_df['height'] != -100.0) &
+                (self.__mission_info_df['speed'] != -100.0) &
+                (self.__mission_info_df['climb_rate'] != -100.0) &
+                (self.__mission_info_df['heading'] != -100.0) &
+                (self.__mission_info_df['latitude'] != -200) &
+                (self.__mission_info_df['longitude'] != -200)
+            ]
+
+            # Drop 'log_info' column after parsing and reset index
+            self.__mission_info_df = self.__mission_info_df.drop(columns=['log_info']).reset_index(drop=True)
         else:
             log.w("No MISSION_INFO logs to process.")
 
@@ -154,6 +168,9 @@ class Log(BaseClass):
             # Convert numeric columns
             for col in spray_columns:
                 self.__spray_info_df[col] = pd.to_numeric(self.__spray_info_df[col], errors='coerce')
+
+            # Drop 'log_info' column after parsing and reset index
+            self.__spray_info_df = self.__spray_info_df.drop(columns=['log_info']).reset_index(drop=True)
         else:
             log.w("No SPRAY_INFO logs to process.")
 
@@ -190,7 +207,7 @@ class Log(BaseClass):
             )
 
             # Update __spray_info_df with the merged data
-            self.__spray_info_df = merged_df
+            self.__spray_info_df = merged_df.reset_index(drop=True)
 
             log.i("Location info added to spray_info_df successfully.")
 
