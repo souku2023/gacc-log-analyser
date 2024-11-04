@@ -13,7 +13,7 @@ class FileHandler(logging.FileHandler):
                  ) -> None:
         """
         """
-        self.__filename = 'Nova_log_{}-{}-{}_{}-{}.log'.format(
+        self.__filename = 'PPLApp_{}-{}-{}_{}-{}.log'.format(
             str(datetime.now().year),
             str(datetime.now().month), 
             str(datetime.now().day),
@@ -26,7 +26,7 @@ class FileHandler(logging.FileHandler):
         super().__init__(self.__file_path, mode, encoding, delay, errors)
 
         self.__log_level = logging.DEBUG
-        self.__format_str = '%(levelname)-8s, %(name)s, %(message)s, [%(pathname)s: %(lineno)d]'
+        self.__format_str = '%(levelname)-8s, %(name)s, %(message)s'
         self.__formatter = FileFormatter(fmt=self.__format_str)
         self.setFormatter(self.__formatter)
         self.setLevel(self.__log_level)

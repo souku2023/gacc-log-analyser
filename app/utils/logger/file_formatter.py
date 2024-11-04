@@ -3,7 +3,8 @@ import copy
 
 class FileFormatter(logging.Formatter):
     def formatException(self, exc_info):
-        result = super(FileFormatter, self).formatException(exc_info)
+        result = super().formatException(exc_info)
+        result = "\n\t".join(result.splitlines())
         return result
     
     def formatStack(self, stack_info: str) -> str:
@@ -12,15 +13,14 @@ class FileFormatter(logging.Formatter):
     def formatMessage(self, record: logging.LogRecord) -> str:
         """Custom message formatting: for console only the last child is 
         printed"""
-        copied_record = copy.deepcopy(record)
         if '__main__' not in record.name:
-            split_name = copied_record.name.split('.')
-            copied_record.name = split_name[-1]
+            split_name = record.name.split('.')
+            record.name = split_name[-1].upper()
             
-        return super().formatMessage(copied_record)
+        return super().formatMessage(record)
 
     def format(self, record):
-        s = super(FileFormatter, self).format(record)
+        s = super().format(record)
         if record.exc_text:
             s = s.replace("\nNoneType: None", "")
             s = s.replace('\n', '\n\t').strip()

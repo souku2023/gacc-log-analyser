@@ -8,7 +8,7 @@ class StreamHandler(logging.StreamHandler):
         """
         super().__init__()
         
-        self.__log_level = logging.INFO
+        self.__log_level = logging.DEBUG
         self.__format_str = '[%(levelname)-8s] %(name)s, %(message)s'
         self.__formatter = StreamFormatter(fmt=self.__format_str)
         self.setFormatter(self.__formatter)

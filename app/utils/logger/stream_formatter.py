@@ -14,17 +14,15 @@ class StreamFormatter(logging.Formatter):
     def formatMessage(self, record: logging.LogRecord) -> str:
         """Custom message formatting: for console only the last child is 
         printed"""
-        copied_record = copy.deepcopy(record)
         if '__main__' not in record.name:
-            split_name = copied_record.name.split('.')
-            copied_record.name = split_name[-1]
+            split_name = record.name.split('.')
+            record.name = split_name[-1].upper()
 
-        return super().formatMessage(copied_record)
+        return super().formatMessage(record)
     
     def format(self, record):
         s = super(StreamFormatter, self).format(record)
         if record.exc_text:
             s = s.replace('\n', ', ').strip()
-            s = s.replace("\nNoneType: None", "")
-
+        s = s.replace("\nNoneType: None", "")
         return s
