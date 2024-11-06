@@ -1,6 +1,9 @@
 # base_model.py
 
 from base_class import BaseClass
+from app.utils.logger import Logger
+
+log = Logger(__name__)
 
 class BaseModel(BaseClass):
     def __init__(self):

@@ -13,7 +13,7 @@ class FileHandler(logging.FileHandler):
                  ) -> None:
         """
         """
-        self.__filename = 'PPLApp_{}-{}-{}_{}-{}.log'.format(
+        self.__filename = 'App_{}-{}-{}_{}-{}.log'.format(
             str(datetime.now().year),
             str(datetime.now().month), 
             str(datetime.now().day),
